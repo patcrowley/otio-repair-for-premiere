@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OTIO Repair for Premiere</title>
+<style>
+  :root {
+    --bg:       #1e1e2e;
+    --panel:    #252537;
+    --input:    #2e2e44;
+    --fg:       #e0e0f0;
+    --dim:      #888899;
+    --accent:   #7c6af7;
+    --red:      #f76a6a;
+    --yellow:   #f7c96a;
+    --green:    #6af7a0;
+    --radius:   8px;
+    --font:     -apple-system, "Segoe UI", sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--fg);
+    font-family: var(--font); font-size: 14px;
+    min-height: 100vh; padding: 0 0 40px;
+  }
+
+  /* ── Header ── */
+  header {
+    padding: 22px 28px 14px;
+    display: flex; align-items: baseline; gap: 10px;
+    border-bottom: 1px solid var(--input);
+  }
+  header h1 { font-size: 26px; font-weight: 700; }
+  header span { color: var(--dim); font-size: 15px; }
+
+  /* ── Drop zone ── */
+  #drop-zone {
+    margin: 24px 24px 0;
+    border: 2px dashed var(--input);
+    border-radius: var(--radius);
+    padding: 36px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  #drop-zone:hover, #drop-zone.drag-over {
+    border-color: var(--accent);
+    background: #2a2840;
+  }
+  #drop-zone p { color: var(--dim); margin-top: 8px; font-size: 13px; }
+  #drop-zone .drop-icon { font-size: 36px; opacity: .5; }
+  #file-btn {
+    margin-top: 14px;
+    background: var(--input); color: var(--fg);
+    border: none; border-radius: 6px;
+    padding: 8px 20px; font-size: 14px; cursor: pointer;
+    font-family: var(--font);
+    transition: background .15s;
+  }
+  #file-btn:hover { background: var(--accent); color: #fff; }
+  #file-input { display: none; }
+
+  /* ── Loaded path ── */
+  #loaded-path {
+    margin: 10px 24px 0;
+    color: var(--dim); font-size: 12px;
+    display: none;
+  }
+
+  /* ── Section wrapper ── */
+  .section {
+    margin: 16px 24px 0;
+    background: var(--panel);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    display: none;
+  }
+  .section.visible { display: block; }
+  .section-title {
+    font-size: 12px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .08em; color: var(--dim); margin-bottom: 12px;
+  }
+
+  /* ── Repath panel ── */
+  #repath-section { border: 1px solid #5c4a00; }
+  #repath-section .section-title { color: var(--yellow); }
+  .field-row {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .field-row label { color: var(--dim); font-size: 13px; text-align: right; }
+  input[type="text"] {
+    background: var(--input); color: var(--fg);
+    border: none; border-radius: 6px;
+    padding: 7px 10px; font-size: 13px;
+    font-family: var(--font);
+    outline: none; width: 100%;
+    transition: box-shadow .15s;
+  }
+  input[type="text"]:focus { box-shadow: 0 0 0 2px var(--accent); }
+  #repath-preview { color: var(--dim); font-size: 12px; margin-top: 6px; }
+
+  /* ── Meta row (seq size + output) ── */
+  #meta-section {
+    display: none;
+    margin: 10px 24px 0;
+    gap: 10px;
+  }
+  #meta-section.visible {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  @media (max-width: 600px) {
+    #meta-section.visible { grid-template-columns: 1fr; }
+  }
+  .meta-card {
+    background: var(--panel);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+  }
+  .meta-label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .08em; color: var(--dim); margin-bottom: 8px;
+  }
+  .size-row {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .size-row input { width: 80px; }
+  .size-x { color: var(--dim); }
+
+  /* ── Issues ── */
+  #issues-section { padding-bottom: 8px; }
+  .issues-header {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 4px;
+  }
+  .issues-header h2 { font-size: 15px; font-weight: 600; }
+  .sel-links { font-size: 12px; }
+  .sel-links a {
+    color: var(--accent); text-decoration: none; cursor: pointer;
+  }
+  .sel-links a:hover { text-decoration: underline; }
+  #issues-count { color: var(--dim); font-size: 12px; margin-bottom: 10px; }
+
+  .issue-group-label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .08em; color: var(--dim);
+    margin: 12px 0 6px;
+  }
+  .issue-row {
+    padding: 8px 10px;
+    border-radius: 6px;
+    margin-bottom: 4px;
+    background: var(--bg);
+  }
+  .issue-top {
+    display: flex; align-items: flex-start; gap: 8px;
+  }
+  .issue-dot { font-size: 12px; margin-top: 2px; flex-shrink: 0; }
+  .issue-msg { font-size: 13px; font-weight: 500; line-height: 1.4; }
+  .issue-detail {
+    font-size: 12px; color: var(--dim); margin-top: 5px;
+    padding-left: 22px; line-height: 1.5;
+  }
+  .issue-cb { accent-color: var(--accent); width: 15px; height: 15px;
+               margin-top: 2px; flex-shrink: 0; cursor: pointer; }
+
+  .sev-error   { color: var(--red); }
+  .sev-warning { color: var(--yellow); }
+  .sev-info    { color: var(--dim); }
+
+  /* ── Applied fixes ── */
+  #applied-box {
+    background: #1a2e22;
+    border: 1px solid #2a4a32;
+    border-radius: 6px;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+    display: none;
+  }
+  #applied-box.visible { display: block; }
+  #applied-box .label { font-size: 11px; font-weight: 700;
+                         text-transform: uppercase; color: var(--green);
+                         letter-spacing: .08em; margin-bottom: 6px; }
+  .applied-item { font-size: 12px; color: var(--green); margin: 3px 0; }
+  .applied-saved { font-size: 12px; color: var(--dim); margin-top: 6px; }
+
+  /* ── Rename section ── */
+  #rename-section { padding: 0; overflow: hidden; }
+  #rename-section .section-title { padding: 16px 18px 0; }
+  .rename-batch {
+    padding: 0 18px 12px;
+    display: grid;
+    grid-template-columns: auto 1fr auto auto 1fr auto;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid var(--bg);
+  }
+  .rename-batch label { color: var(--dim); font-size: 12px; white-space: nowrap; }
+  .batch-btn {
+    background: var(--input); color: var(--fg);
+    border: none; border-radius: 5px;
+    padding: 5px 12px; font-size: 12px; cursor: pointer;
+    font-family: var(--font); white-space: nowrap;
+  }
+  .batch-btn:hover { background: #3a3a5a; }
+  .rename-hint { padding: 6px 18px 8px; font-size: 12px; color: var(--dim); }
+  .rename-table { width: 100%; border-collapse: collapse; }
+  .rename-table th {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .06em; color: var(--dim);
+    padding: 8px 12px; text-align: left;
+    background: var(--bg); border-bottom: 1px solid var(--input);
+  }
+  .rename-table td {
+    padding: 6px 10px; vertical-align: middle;
+  }
+  .rename-row:nth-child(even) td { background: #20203a; }
+  .rename-row:nth-child(odd)  td { background: var(--panel); }
+  .dot-cell { width: 24px; text-align: center; font-size: 12px; }
+  .name-cell .basename { font-size: 13px; }
+  .name-cell .dirname  { font-size: 11px; color: var(--dim); }
+  .rename-input {
+    background: var(--input); color: var(--fg);
+    border: none; border-radius: 5px;
+    padding: 5px 8px; font-size: 13px;
+    font-family: var(--font); width: 100%;
+    outline: none;
+  }
+  .rename-input:focus { box-shadow: 0 0 0 2px var(--accent); }
+  #rename-changed { padding: 8px 18px; font-size: 12px; color: var(--dim); }
+
+  /* ── Bottom bar ── */
+  #bottom-bar {
+    position: sticky; bottom: 0;
+    background: var(--bg);
+    border-top: 1px solid var(--input);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 16px;
+  }
+  #status-msg { flex: 1; font-size: 13px; color: var(--dim); }
+  .btn {
+    border: none; border-radius: 6px;
+    padding: 8px 18px; font-size: 14px; cursor: pointer;
+    font-family: var(--font); font-weight: 500;
+    transition: background .15s, opacity .15s;
+  }
+  .btn:disabled { opacity: .4; cursor: default; }
+  .btn-ghost  { background: var(--input); color: var(--fg); }
+  .btn-ghost:not(:disabled):hover  { background: #3a3a5a; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:not(:disabled):hover { background: #9880ff; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>OTIO Repair</h1>
+  <span>for Adobe Premiere Pro</span>
+</header>
+
+<!-- Drop zone -->
+<div id="drop-zone">
+  <div class="drop-icon">📂</div>
+  <p>Drag &amp; drop an .otio file here, or click to browse</p>
+  <button id="file-btn">Open File…</button>
+  <input type="file" id="file-input" accept=".otio,.json">
+</div>
+<div id="loaded-path"></div>
+
+<!-- Re-path -->
+<div class="section" id="repath-section">
+  <div class="section-title">⚠ Re-path Media</div>
+  <p style="color:var(--dim);font-size:12px;margin-bottom:10px;">
+    Media paths in this file are Mac-format and won't resolve on Windows.<br>
+    Enter the prefix to replace and what to replace it with.
+  </p>
+  <div class="field-row">
+    <label>Replace:</label>
+    <input type="text" id="repath-from" placeholder="/Volumes/EB01">
+  </div>
+  <div class="field-row">
+    <label>With:</label>
+    <input type="text" id="repath-to" placeholder="E:">
+  </div>
+  <div id="repath-preview"></div>
+</div>
+
+<!-- Sequence size + output filename -->
+<div id="meta-section">
+  <div class="meta-card">
+    <div class="meta-label">Sequence Size (px)</div>
+    <div class="size-row">
+      <input type="text" id="seq-w" placeholder="1920" style="width:80px">
+      <span class="size-x">×</span>
+      <input type="text" id="seq-h" placeholder="1080" style="width:80px">
+    </div>
+    <div style="color:var(--dim);font-size:11px;margin-top:6px;">Applied on Fix &amp; Download</div>
+  </div>
+  <div class="meta-card">
+    <div class="meta-label">Output Filename</div>
+    <input type="text" id="out-name" style="width:100%">
+  </div>
+</div>
+
+<!-- Issues -->
+<div class="section" id="issues-section">
+  <div class="issues-header">
+    <h2>Issues</h2>
+    <div class="sel-links" id="sel-links" style="display:none">
+      <a onclick="selectAllFixes(true)">select all</a> ·
+      <a onclick="selectAllFixes(false)">select none</a>
+    </div>
+  </div>
+  <div id="issues-count"></div>
+  <div id="applied-box"><div class="label">Applied fixes</div><div id="applied-list"></div></div>
+  <div id="issues-list"></div>
+</div>
+
+<!-- Rename section -->
+<div class="section" id="rename-section">
+  <div class="section-title">Linked Files</div>
+  <div class="rename-batch">
+    <label>Find:</label>
+    <input type="text" id="batch-find" placeholder="">
+    <button class="batch-btn" onclick="batchFindReplace()">Replace All with:</button>
+    <label style="display:none"></label>
+    <input type="text" id="batch-replace" placeholder="">
+    <span></span>
+  </div>
+  <div class="rename-batch" style="grid-template-columns:auto 1fr auto auto 1fr auto;margin-top:4px;">
+    <label>Prefix:</label>
+    <input type="text" id="batch-prefix" placeholder="">
+    <button class="batch-btn" onclick="batchPrefix()">Add Prefix</button>
+    <label>Suffix:</label>
+    <input type="text" id="batch-suffix" placeholder="">
+    <button class="batch-btn" onclick="batchSuffix()">Add Suffix</button>
+  </div>
+  <div style="padding:4px 18px 8px;display:flex;gap:8px;align-items:center;">
+    <button class="batch-btn" onclick="batchReset()">Reset All</button>
+    <span id="rename-changed" style="padding:0;font-size:12px;color:var(--dim);"></span>
+  </div>
+  <div class="rename-hint">
+    ⓘ Renames update OTIO references. You'll also need to rename the actual files on disk to match.
+  </div>
+  <div style="overflow-x:auto;">
+    <table class="rename-table">
+      <thead>
+        <tr>
+          <th style="width:28px"></th>
+          <th>Current File</th>
+          <th>New Name</th>
+        </tr>
+      </thead>
+      <tbody id="rename-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Bottom bar -->
+<div id="bottom-bar">
+  <span id="status-msg">Open an .otio file to begin.</span>
+  <button class="btn btn-ghost" id="rename-toggle-btn" disabled onclick="toggleRenameSection()">Rename Files…</button>
+  <button class="btn btn-primary" id="fix-btn" disabled onclick="fixAndDownload()">Fix &amp; Download</button>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────────────
+let otioData   = null;
+let issues     = [];
+let fixVars    = {};   // fix_key → checkbox element
+let renameVars = {};   // url     → input element
+let urlOriginals = {}; // url     → original basename
+let allUrls    = [];
+let renameOpen = false;
+let originalFilename = "";
+
+// ─────────────────────────────────────────────
+//  URL HELPERS
+// ─────────────────────────────────────────────
+function splitUrl(url) {
+  let bare = url;
+  if (url.startsWith("file:///")) {
+    bare = url.slice(8);
+    // Mac path: no drive letter → restore leading /
+    if (bare.length < 2 || bare[1] !== ":") bare = "/" + bare;
+  } else if (url.startsWith("file://")) {
+    bare = url.slice(7);
+  }
+  const idx = bare.lastIndexOf("/");
+  if (idx < 0) return ["", bare];
+  return [bare.slice(0, idx + 1), bare.slice(idx + 1)];
+}
+
+function rebuildUrl(dir, name) {
+  const full = dir + name;
+  return full.startsWith("/") ? "file://" + full : "file:///" + full;
+}
+
+function commonPrefix(urls) {
+  if (!urls.length) return "";
+  const parts = urls.map(u => splitUrl(u)[0]);
+  let result = parts[0];
+  for (let i = 1; i < parts.length; i++) {
+    while (result && !parts[i].startsWith(result)) {
+      const slash = result.slice(0, -1).lastIndexOf("/");
+      result = slash < 0 ? "" : result.slice(0, slash + 1);
+    }
+  }
+  return result;
+}
+
+function truncatePath(s, n = 52) {
+  return s.length <= n ? s : "…" + s.slice(-(n - 1));
+}
+
+// ─────────────────────────────────────────────
+//  COLLECT URLs
+// ─────────────────────────────────────────────
+function collectUrls(obj, seen = new Set(), out = []) {
+  if (!obj || typeof obj !== "object") return out;
+  if (Array.isArray(obj)) { obj.forEach(v => collectUrls(v, seen, out)); return out; }
+  const url = obj.url || obj.target_url;
+  if (typeof url === "string" && url.startsWith("file://") && !seen.has(url)) {
+    seen.add(url); out.push(url);
+  }
+  Object.values(obj).forEach(v => collectUrls(v, seen, out));
+  return out;
+}
+
+// ─────────────────────────────────────────────
+//  SEQUENCE RESOLUTION
+// ─────────────────────────────────────────────
+function getSeqResolution(data) {
+  try {
+    const vr = data?.tracks?.metadata?.PremierePro_OTIO?.VideoResolution;
+    return [vr?.width ?? null, vr?.height ?? null];
+  } catch { return [null, null]; }
+}
+
+// ─────────────────────────────────────────────
+//  DIAGNOSE
+// ─────────────────────────────────────────────
+function diagnose(data) {
+  const found = [];
+  const urls  = collectUrls(data);
+
+  // Mac paths
+  const macUrls = urls.filter(u => u.includes("/Volumes/"));
+  if (macUrls.length) {
+    const prefix = commonPrefix(macUrls);
+    found.push({
+      severity: "error",
+      message:  `Media paths are Mac-format (${macUrls.length} file${macUrls.length !== 1 ? "s" : ""})`,
+      fix_key:  "repath",
+      detail:   `Common prefix: ${prefix || "(varies)"}\nThese paths won't resolve on Windows. Use the Re-path panel above.`,
+    });
+  }
+
+  // Crash fields
+  let crashFound = false;
+  function checkCrash(obj) {
+    if (!obj || typeof obj !== "object") return;
+    if (Array.isArray(obj)) { obj.forEach(checkCrash); return; }
+    if (typeof obj.OTIO_SCHEMA === "string" && obj.OTIO_SCHEMA.startsWith("Clip")) {
+      const inner = obj.metadata?.PremierePro_OTIO;
+      if (inner && ("OriginalChannelGroupIndex" in inner || "SourceClipIndex" in inner))
+        crashFound = true;
+    }
+    Object.values(obj).forEach(checkCrash);
+  }
+  checkCrash(data);
+  if (crashFound) found.push({
+    severity: "error",
+    message:  "Mac-only audio metadata fields crash Premiere on Windows",
+    fix_key:  "crash_fields",
+    detail:   "OriginalChannelGroupIndex and SourceClipIndex in audio clip metadata crash Premiere's Windows OTIO importer. Safe to remove — Premiere recreates them on import.",
+  });
+
+  // LinearTimeWarp
+  let ltwFound = false;
+  function checkLtw(obj) {
+    if (!obj || typeof obj !== "object") return;
+    if (Array.isArray(obj)) { obj.forEach(checkLtw); return; }
+    if (typeof obj.OTIO_SCHEMA === "string" && obj.OTIO_SCHEMA.startsWith("LinearTimeWarp"))
+      ltwFound = true;
+    Object.values(obj).forEach(checkLtw);
+  }
+  checkLtw(data);
+  if (ltwFound) found.push({
+    severity: "warning",
+    message:  "LinearTimeWarp speed effects found (not supported by Premiere OTIO importer)",
+    fix_key:  "linear_timewarp",
+    detail:   "Removing them allows the file to import; clips will play at their original speed.",
+  });
+
+  // global_start_time
+  if (data.global_start_time !== undefined && data.global_start_time !== null) {
+    found.push({
+      severity: "warning",
+      message:  "global_start_time is set — may shift timeline in Premiere",
+      fix_key:  "global_start_time",
+      detail:   "Setting it to null aligns the timeline to zero, as Premiere expects.",
+    });
+  }
+
+  // Null metadata
+  let nullMeta = false;
+  function checkNull(obj) {
+    if (!obj || typeof obj !== "object") return;
+    if (Array.isArray(obj)) { obj.forEach(checkNull); return; }
+    if ("metadata" in obj && obj.metadata !== null && typeof obj.metadata !== "object")
+      nullMeta = true;
+    Object.values(obj).forEach(checkNull);
+  }
+  checkNull(data);
+  if (nullMeta) found.push({
+    severity: "warning",
+    message:  "Non-dict metadata values found",
+    fix_key:  "null_metadata",
+    detail:   "Some metadata fields are not objects. These will be replaced with {}.",
+  });
+
+  return found;
+}
+
+// ─────────────────────────────────────────────
+//  FIX ALL
+// ─────────────────────────────────────────────
+function fixAll(data, enabledKeys, repathFrom, repathTo, seqW, seqH) {
+  const applied = [];
+  const enabled = k => enabledKeys == null || enabledKeys.has(k);
+  const CRASH = ["OriginalChannelGroupIndex", "SourceClipIndex"];
+
+  function walkCrash(obj) {
+    if (!obj || typeof obj !== "object") return;
+    if (Array.isArray(obj)) { obj.forEach(walkCrash); return; }
+    if (typeof obj.OTIO_SCHEMA === "string" && obj.OTIO_SCHEMA.startsWith("Clip")) {
+      const inner = obj.metadata?.PremierePro_OTIO;
+      if (inner && typeof inner === "object") {
+        const removed = CRASH.filter(f => f in inner);
+        removed.forEach(f => delete inner[f]);
+        if (removed.length && applied.indexOf("crash") < 0) {
+          applied.push("crash");
+          applied._crashMsg = `Removed Mac-only crash fields (${removed.join(", ")}) from audio clips`;
+        }
+      }
+    }
+    Object.values(obj).forEach(walkCrash);
+  }
+
+  function walkLtw(obj) {
+    if (!obj || typeof obj !== "object") return;
+    if (Array.isArray(obj)) { obj.forEach(walkLtw); return; }
+    if (Array.isArray(obj.effects)) {
+      const before = obj.effects.length;
+      obj.effects = obj.effects.filter(e =>
+        !(e && typeof e.OTIO_SCHEMA === "string" && e.OTIO_SCHEMA.startsWith("LinearTimeWarp"))
+      );
+      if (obj.effects.length < before && !applied.includes("ltw")) {
+        applied.push("ltw");
+        applied._ltwMsg = `Removed ${before - obj.effects.length} LinearTimeWarp effect(s)`;
+      }
+    }
+    Object.values(obj).forEach(walkLtw);
+  }
+
+  function walkNullMeta(obj) {
+    if (!obj || typeof obj !== "object") return;
+    if (Array.isArray(obj)) { obj.forEach(walkNullMeta); return; }
+    if ("metadata" in obj && obj.metadata !== null && typeof obj.metadata !== "object") {
+      obj.metadata = {};
+      if (!applied.includes("nullmeta")) {
+        applied.push("nullmeta");
+        applied._nmMsg = "Replaced non-object metadata values with {}";
+      }
+    }
+    Object.values(obj).forEach(walkNullMeta);
+  }
+
+  function walkRepath(obj) {
+    if (!obj || typeof obj !== "object") return;
+    if (Array.isArray(obj)) { obj.forEach(walkRepath); return; }
+    ["url", "target_url"].forEach(k => {
+      if (typeof obj[k] === "string" && obj[k].includes(repathFrom)) {
+        obj[k] = obj[k].split(repathFrom).join(repathTo);
+        if (!applied.includes("repath")) {
+          applied.push("repath");
+          applied._repathMsg = `Re-pathed media: '${repathFrom}' → '${repathTo}'`;
+        }
+      }
+    });
+    Object.values(obj).forEach(walkRepath);
+  }
+
+  const msgs = [];
+
+  if (enabled("crash_fields")) {
+    walkCrash(data);
+    if (applied._crashMsg) msgs.push(applied._crashMsg);
+  }
+  if (enabled("linear_timewarp")) {
+    walkLtw(data);
+    if (applied._ltwMsg) msgs.push(applied._ltwMsg);
+  }
+  if (enabled("global_start_time") && data.global_start_time != null) {
+    data.global_start_time = null;
+    msgs.push("Set global_start_time to null");
+  }
+  if (enabled("null_metadata")) {
+    walkNullMeta(data);
+    if (applied._nmMsg) msgs.push(applied._nmMsg);
+  }
+  if (repathFrom && repathTo) {
+    walkRepath(data);
+    if (applied._repathMsg) msgs.push(applied._repathMsg);
+  }
+  if (seqW > 0 && seqH > 0) {
+    try {
+      const pp = data.tracks.metadata.PremierePro_OTIO || (data.tracks.metadata.PremierePro_OTIO = {});
+      const old = pp.VideoResolution || {};
+      pp.VideoResolution = { width: seqW, height: seqH };
+      if (old.width !== seqW || old.height !== seqH)
+        msgs.push(`Updated sequence resolution: ${old.width}×${old.height} → ${seqW}×${seqH}`);
+    } catch {}
+  }
+  return msgs;
+}
+
+// ─────────────────────────────────────────────
+//  UPDATE URLs (rename)
+// ─────────────────────────────────────────────
+function applyUrlMap(obj, map) {
+  if (!obj || typeof obj !== "object") return;
+  if (Array.isArray(obj)) { obj.forEach(o => applyUrlMap(o, map)); return; }
+  ["url", "target_url"].forEach(k => {
+    if (obj[k] && map[obj[k]]) obj[k] = map[obj[k]];
+  });
+  Object.values(obj).forEach(v => applyUrlMap(v, map));
+}
+
+// ─────────────────────────────────────────────
+//  FILE LOAD
+// ─────────────────────────────────────────────
+function loadFile(file) {
+  if (!file) return;
+  originalFilename = file.name;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      otioData = JSON.parse(e.target.result);
+    } catch (err) {
+      setStatus("JSON parse error: " + err.message, "red");
+      return;
+    }
+    document.getElementById("loaded-path").style.display = "block";
+    document.getElementById("loaded-path").textContent = "Loaded: " + file.name;
+    processLoaded();
+  };
+  reader.readAsText(file);
+}
+
+function processLoaded() {
+  issues = diagnose(otioData);
+  allUrls = collectUrls(otioData);
+  buildRepathPanel();
+  buildMetaRow();
+  buildIssuesList(issues);
+  buildRenameTable();
+  setStatus("Ready. Check fixes above, then click Fix & Download.", "accent");
+  updateButtons();
+}
+
+// ─────────────────────────────────────────────
+//  REPATH PANEL
+// ─────────────────────────────────────────────
+function buildRepathPanel() {
+  const macUrls = allUrls.filter(u => u.includes("/Volumes/"));
+  const section = document.getElementById("repath-section");
+  if (macUrls.length) {
+    const prefix = commonPrefix(macUrls);
+    // strip file:/// or file://
+    const bare = prefix.replace(/^file:\/\/\//, "").replace(/^file:\/\//, "");
+    document.getElementById("repath-from").value = bare;
+    section.classList.add("visible");
+    updateRepathPreview();
+  } else {
+    section.classList.remove("visible");
+  }
+}
+
+function updateRepathPreview() {
+  const frm   = document.getElementById("repath-from").value.trim();
+  const to    = document.getElementById("repath-to").value.trim();
+  const el    = document.getElementById("repath-preview");
+  if (frm && to && allUrls.length) {
+    const sample = allUrls.find(u => u.includes(frm));
+    if (sample) {
+      el.textContent = "e.g. " + truncatePath(sample.split(frm).join(to), 60);
+      return;
+    }
+  }
+  el.textContent = "";
+}
+
+document.getElementById("repath-from").addEventListener("input", updateRepathPreview);
+document.getElementById("repath-to").addEventListener("input",   updateRepathPreview);
+
+// ─────────────────────────────────────────────
+//  META ROW (seq size + output name)
+// ─────────────────────────────────────────────
+function buildMetaRow() {
+  const [w, h] = getSeqResolution(otioData);
+  document.getElementById("seq-w").value = w ?? "";
+  document.getElementById("seq-h").value = h ?? "";
+  const stem = originalFilename.replace(/\.otio$/i, "") + "_fixed.otio";
+  document.getElementById("out-name").value = stem;
+  document.getElementById("meta-section").classList.add("visible");
+}
+
+// ─────────────────────────────────────────────
+//  ISSUES LIST
+// ─────────────────────────────────────────────
+function buildIssuesList(iss) {
+  const container = document.getElementById("issues-list");
+  container.innerHTML = "";
+  fixVars = {};
+  document.getElementById("applied-box").classList.remove("visible");
+
+  const section = document.getElementById("issues-section");
+  section.classList.add("visible");
+
+  if (!iss.length) {
+    document.getElementById("issues-count").textContent = "No issues — file looks good!";
+    document.getElementById("issues-count").style.color = "var(--green)";
+    document.getElementById("sel-links").style.display = "none";
+    return;
+  }
+
+  const fixable = iss.filter(i => i.fix_key && i.fix_key !== "repath").length;
+  const errors  = iss.filter(i => i.severity === "error").length;
+  document.getElementById("issues-count").textContent =
+    `${iss.length} issue${iss.length !== 1 ? "s" : ""}  (${fixable} fixable)`;
+  document.getElementById("issues-count").style.color = errors ? "var(--red)" : "var(--yellow)";
+  document.getElementById("sel-links").style.display = fixable ? "" : "none";
+
+  for (const group of [["Errors","error"],["Warnings","warning"],["Info","info"]]) {
+    const [label, sev] = group;
+    const grp = iss.filter(i => i.severity === sev);
+    if (!grp.length) continue;
+    const lbl = document.createElement("div");
+    lbl.className = "issue-group-label"; lbl.textContent = label;
+    container.appendChild(lbl);
+    grp.forEach(issue => container.appendChild(makeIssueRow(issue)));
+  }
+
+  if (fixable) {
+    const hint = document.createElement("div");
+    hint.style.cssText = "font-size:12px;color:var(--dim);margin-top:10px;padding:0 4px;";
+    hint.textContent = "Checked items will be fixed when you click Fix & Download.";
+    container.appendChild(hint);
+  }
+}
+
+function makeIssueRow(issue) {
+  const checkable = issue.fix_key && issue.fix_key !== "repath";
+  const color = { error:"var(--red)", warning:"var(--yellow)", info:"var(--dim)" }[issue.severity];
+
+  const row = document.createElement("div");
+  row.className = "issue-row";
+
+  const top = document.createElement("div");
+  top.className = "issue-top";
+
+  if (checkable) {
+    const cb = document.createElement("input");
+    cb.type = "checkbox"; cb.checked = true; cb.className = "issue-cb";
+    cb.addEventListener("change", updateButtons);
+    fixVars[issue.fix_key] = cb;
+    top.appendChild(cb);
+  } else {
+    const dot = document.createElement("span");
+    dot.className = "issue-dot sev-" + issue.severity;
+    dot.textContent = issue.severity === "error" ? "●" : "○";
+    top.appendChild(dot);
+  }
+
+  const msg = document.createElement("span");
+  msg.className = "issue-msg"; msg.style.color = color;
+  msg.textContent = issue.message;
+  top.appendChild(msg);
+  row.appendChild(top);
+
+  if (issue.detail) {
+    const det = document.createElement("div");
+    det.className = "issue-detail";
+    det.textContent = issue.detail;
+    row.appendChild(det);
+  }
+  return row;
+}
+
+function selectAllFixes(val) {
+  Object.values(fixVars).forEach(cb => cb.checked = val);
+  updateButtons();
+}
+
+// ─────────────────────────────────────────────
+//  RENAME TABLE
+// ─────────────────────────────────────────────
+function buildRenameTable() {
+  renameVars = {}; urlOriginals = {};
+  const tbody = document.getElementById("rename-tbody");
+  tbody.innerHTML = "";
+
+  if (!allUrls.length) {
+    document.getElementById("rename-section").classList.remove("visible");
+    return;
+  }
+
+  allUrls.forEach((url, i) => {
+    const [dir, basename] = splitUrl(url);
+    urlOriginals[url] = basename;
+
+    const tr = document.createElement("tr");
+    tr.className = "rename-row";
+
+    // Dot (always grey in browser — can't check disk access)
+    const dotTd = document.createElement("td");
+    dotTd.className = "dot-cell sev-info"; dotTd.textContent = "○";
+    tr.appendChild(dotTd);
+
+    // Current name
+    const nameTd = document.createElement("td");
+    nameTd.className = "name-cell";
+    nameTd.innerHTML = `<div class="basename">${escHtml(basename)}</div>
+                        <div class="dirname">${escHtml(truncatePath(dir))}</div>`;
+    tr.appendChild(nameTd);
+
+    // New name input
+    const inTd = document.createElement("td");
+    const inp = document.createElement("input");
+    inp.type = "text"; inp.className = "rename-input"; inp.value = basename;
+    inp.addEventListener("input", updateRenameChanged);
+    renameVars[url] = inp;
+    inTd.appendChild(inp);
+    tr.appendChild(inTd);
+
+    tbody.appendChild(tr);
+  });
+
+  updateRenameChanged();
+}
+
+function updateRenameChanged() {
+  const n = Object.entries(renameVars).filter(([u, inp]) =>
+    inp.value.trim() !== urlOriginals[u]).length;
+  document.getElementById("rename-changed").textContent =
+    n ? `${n} file(s) will be renamed in OTIO` : "";
+}
+
+function batchFindReplace() {
+  const find = document.getElementById("batch-find").value;
+  const repl = document.getElementById("batch-replace").value;
+  if (!find) return;
+  Object.values(renameVars).forEach(inp => {
+    inp.value = inp.value.split(find).join(repl);
+  });
+  updateRenameChanged();
+}
+
+function batchPrefix() {
+  const p = document.getElementById("batch-prefix").value;
+  if (!p) return;
+  Object.values(renameVars).forEach(inp => {
+    if (!inp.value.startsWith(p)) inp.value = p + inp.value;
+  });
+  updateRenameChanged();
+}
+
+function batchSuffix() {
+  const s = document.getElementById("batch-suffix").value;
+  if (!s) return;
+  Object.values(renameVars).forEach(inp => {
+    const dot = inp.value.lastIndexOf(".");
+    if (dot > 0) inp.value = inp.value.slice(0, dot) + s + inp.value.slice(dot);
+    else inp.value = inp.value + s;
+  });
+  updateRenameChanged();
+}
+
+function batchReset() {
+  Object.entries(renameVars).forEach(([u, inp]) => {
+    inp.value = urlOriginals[u];
+  });
+  updateRenameChanged();
+}
+
+function toggleRenameSection() {
+  renameOpen = !renameOpen;
+  const sec = document.getElementById("rename-section");
+  renameOpen ? sec.classList.add("visible") : sec.classList.remove("visible");
+  document.getElementById("rename-toggle-btn").textContent =
+    renameOpen ? "Hide Rename…" : "Rename Files…";
+}
+
+// ─────────────────────────────────────────────
+//  FIX & DOWNLOAD
+// ─────────────────────────────────────────────
+function fixAndDownload() {
+  if (!otioData) return;
+
+  // Deep clone so we can diagnose the unfixed version again later
+  const data = JSON.parse(JSON.stringify(otioData));
+
+  // Apply rename URL map first
+  const urlMap = {};
+  Object.entries(renameVars).forEach(([url, inp]) => {
+    const newName = inp.value.trim();
+    if (newName && newName !== urlOriginals[url]) {
+      const [dir] = splitUrl(url);
+      urlMap[url] = rebuildUrl(dir, newName);
+    }
+  });
+  if (Object.keys(urlMap).length) applyUrlMap(data, urlMap);
+
+  const enabledKeys = new Set(
+    Object.entries(fixVars).filter(([, cb]) => cb.checked).map(([k]) => k)
+  );
+
+  const repathFrom = document.getElementById("repath-from").value.trim();
+  const repathTo   = document.getElementById("repath-to").value.trim();
+  const seqW = parseInt(document.getElementById("seq-w").value) || 0;
+  const seqH = parseInt(document.getElementById("seq-h").value) || 0;
+
+  const msgs = fixAll(data, enabledKeys, repathFrom, repathTo, seqW, seqH);
+
+  if (Object.keys(urlMap).length) {
+    msgs.unshift(`Updated ${Object.keys(urlMap).length} OTIO reference(s) for renamed files`);
+  }
+
+  // Show applied
+  const box  = document.getElementById("applied-box");
+  const list = document.getElementById("applied-list");
+  list.innerHTML = "";
+  if (msgs.length) {
+    msgs.forEach(m => {
+      const d = document.createElement("div");
+      d.className = "applied-item"; d.textContent = "✓ " + m;
+      list.appendChild(d);
+    });
+    box.classList.add("visible");
+  }
+
+  // Download
+  const outName = document.getElementById("out-name").value.trim()
+    || originalFilename.replace(/\.otio$/i, "") + "_fixed.otio";
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = outName.endsWith(".otio") ? outName : outName + ".otio";
+  a.click();
+  URL.revokeObjectURL(a.href);
+
+  // Re-diagnose on original data to show remaining issues
+  const remaining = diagnose(data);
+  buildIssuesList(remaining);
+
+  // Append saved note
+  const saved = document.createElement("div");
+  saved.className = "applied-saved";
+  saved.textContent = "Downloaded: " + a.download;
+  document.getElementById("applied-list").appendChild(saved);
+  document.getElementById("applied-box").classList.add("visible");
+
+  setStatus("Downloaded → " + a.download, "green");
+  updateButtons();
+}
+
+// ─────────────────────────────────────────────
+//  BUTTONS & STATUS
+// ─────────────────────────────────────────────
+function updateButtons() {
+  const hasFile    = !!otioData;
+  const anyChecked = Object.values(fixVars).some(cb => cb.checked);
+  const hasRepath  = !!(document.getElementById("repath-from").value.trim() &&
+                        document.getElementById("repath-to").value.trim());
+  const canFix     = hasFile && (anyChecked || hasRepath);
+
+  document.getElementById("fix-btn").disabled         = !canFix;
+  document.getElementById("rename-toggle-btn").disabled = !hasFile;
+}
+
+function setStatus(msg, tone) {
+  const el = document.getElementById("status-msg");
+  el.textContent = msg;
+  el.style.color = { green:"var(--green)", red:"var(--red)",
+                     yellow:"var(--yellow)", accent:"var(--accent)" }[tone] || "var(--dim)";
+}
+
+// ─────────────────────────────────────────────
+//  DRAG & DROP / FILE INPUT
+// ─────────────────────────────────────────────
+const dropZone = document.getElementById("drop-zone");
+dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("drag-over"); });
+dropZone.addEventListener("dragleave", ()  => dropZone.classList.remove("drag-over"));
+dropZone.addEventListener("drop", e => {
+  e.preventDefault(); dropZone.classList.remove("drag-over");
+  const f = e.dataTransfer.files[0];
+  if (f) loadFile(f);
+});
+document.getElementById("file-btn").addEventListener("click", () =>
+  document.getElementById("file-input").click());
+document.getElementById("file-input").addEventListener("change", e =>
+  loadFile(e.target.files[0]));
+
+document.getElementById("repath-from").addEventListener("input", updateButtons);
+document.getElementById("repath-to").addEventListener("input",   updateButtons);
+
+// ─────────────────────────────────────────────
+//  UTILS
+// ─────────────────────────────────────────────
+function escHtml(s) {
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+</script>
+</body>
+</html>
